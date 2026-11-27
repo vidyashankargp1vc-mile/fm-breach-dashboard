@@ -561,14 +561,6 @@ td.r{
     </select>
   </div>
 
-  <div class="fg">
-    <label>Functional / CPD</label>
-    <select id="f-type" onchange="handleFunctionalChange()">
-      <option value="all">Functional Breach</option>
-      <option value="cpd">CPD Breach</option>
-    </select>
-  </div>
-
   <div class="ptabs" id="tp-drr">
     <div class="pt on" onclick="setDrrMode('all',this)">All DRR</div>
     <div class="pt" onclick="setDrrMode('lt500',this)">&lt; 500 DRR</div>
@@ -759,17 +751,6 @@ function canon(type, v) {
 
 function N(num) {
   return (num || 0).toLocaleString();
-}
-
-function handleFunctionalChange(){
-  const selectedValue = document.getElementById('f-type').value;
-
-  if(selectedValue === 'cpd'){
-    window.location.href = 'https://vidyashankargp1vc-mile.github.io/fm-cpd-breach-dashboard/';
-    return;
-  }
-
-  applyFilters();
 }
 
 function setDrrMode(mode, el){
@@ -1283,7 +1264,6 @@ function filterDataset(sourceArray) {
   const rm = fv('f-rm');
   const am = fv('f-am');
   const ph = fv('f-ph');
-  const type = fv('f-type');
   const ad = activeDates();
 
   return sourceArray.filter(r =>
@@ -1294,8 +1274,7 @@ function filterDataset(sourceArray) {
     (!gm   || eq(r.gm, gm)) &&
     (!rm   || eq(r.rm, rm)) &&
     (!am   || eq(r.am, am)) &&
-    (!ph   || eq(r.ph, ph)) &&
-    (type !== 'cpd' || r.cpd)
+    (!ph   || eq(r.ph, ph))
   );
 }
 
