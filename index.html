@@ -329,6 +329,32 @@ body{
   border-color:var(--blue);
 }
 
+.lob-tabs{
+  display:flex;
+  gap:4px;
+  padding:3px;
+  background:#EEF0FB;
+  border-radius:999px;
+}
+
+.lob-pt{
+  padding:5px 16px;
+  font-size:12px;
+  font-weight:600;
+  color:var(--muted);
+  cursor:pointer;
+  border-radius:999px;
+  user-select:none;
+}
+
+.lob-pt:hover{color:var(--purple)}
+
+.lob-pt.on{
+  background:var(--purple);
+  color:#fff;
+  box-shadow:0 1px 3px rgba(124,58,237,.35);
+}
+
 .tw{
   overflow:auto;
   max-height:500px;
@@ -561,6 +587,18 @@ td.r{
     </select>
   </div>
 
+  <div class="fg">
+    <label>Line of Business (LOB) · Last 7 Days</label>
+    <input type="hidden" id="f-lob" value="">
+    <div class="lob-tabs" id="tp-lob">
+      <div class="lob-pt on" onclick="setLob('',this)">All</div>
+      <div class="lob-pt" onclick="setLob('APM',this)">APM</div>
+      <div class="lob-pt" onclick="setLob('EKART',this)">Ekart</div>
+      <div class="lob-pt" onclick="setLob('TRUEFLEX',this)">Trueflex</div>
+      <div class="lob-pt" onclick="setLob('ODH',this)">ODH</div>
+    </div>
+  </div>
+
   <div class="ptabs" id="tp-drr">
     <div class="pt on" onclick="setDrrMode('all',this)">All DRR</div>
     <div class="pt" onclick="setDrrMode('lt500',this)">&lt; 500 DRR</div>
@@ -710,6 +748,9 @@ const PICKUP = [BA,BE,BR];
 let drrMode = 'all';
 let RAW = [];
 let CPD_RAW = [];
+let LOB_RAW = [];
+let LOB_DATES = [];
+let BASE_DATES = [];
 let PICKED_MAP = {};
 let CPD_PICKED_MAP = {};
 let HUB_MAP = {};
@@ -812,7 +853,17 @@ async function loadData(){
       console.warn("cpd_data.json not loaded, defaulting to main dataset:", err);
     }
 
-    init(payload, cpdPayload);
+    let lobPayload = null;
+    try {
+      const lobResponse = await fetch('lob_data.json?v=' + Date.now(), { cache: "no-store" });
+      if (lobResponse.ok) {
+        lobPayload = await lobResponse.json();
+      }
+    } catch(err) {
+      console.warn("lob_data.json not loaded, LOB filter disabled:", err);
+    }
+
+    init(payload, cpdPayload, lobPayload);
   }catch(e){
     setS('err', 'Failed to load dataset: ' + e.message);
   }
@@ -929,7 +980,7 @@ function isCapacityConsumed(hubNorm, date) {
   return entry.consumption >= entry.capacity;
 }
 
-function init(payload, cpdPayload){
+function init(payload, cpdPayload, lobPayload){
   HUB_MAP = {};
   CANON = {};
   buildCapacityMap(payload);
@@ -947,11 +998,22 @@ function init(payload, cpdPayload){
     CPD_PICKED_MAP = PICKED_MAP;
   }
 
+  // LOB rows: processed after main data so hub master casing/state/city win.
+  // DRR for LOB view = hub total picked from PICKED_MAP (no LOB-wise picked available).
+  if (lobPayload && Array.isArray(lobPayload.lob_data)) {
+    LOB_RAW = processDataSet({ breach_data: lobPayload.lob_data }).rows;
+    LOB_DATES = [...new Set(LOB_RAW.map(r => r.date))].filter(Boolean).sort((a,b) => dv(b) - dv(a));
+  } else {
+    LOB_RAW = [];
+    LOB_DATES = [];
+  }
+
   const rawDates = RAW.map(r => r.date);
   const pickedDates = Object.keys(PICKED_MAP).map(k => k.split('||')[1]);
   const cpdDates = CPD_RAW.map(r => r.date);
 
   DATES = [...new Set([...rawDates, ...pickedDates, ...cpdDates])].filter(Boolean).sort((a,b) => dv(b) - dv(a));
+  BASE_DATES = DATES;
 
   selectedDates = new Set();
 
@@ -992,6 +1054,24 @@ function buildFilters(){
   pop('f-ph', uniqMeta('ph'));
 
   buildDateList();
+}
+
+// ─────────────────────────────────────────────
+// LOB FILTER
+// ─────────────────────────────────────────────
+function setLob(v, el){
+  document.getElementById('f-lob').value = v;
+  document.querySelectorAll('#tp-lob .lob-pt').forEach(t => t.classList.remove('on'));
+  el.classList.add('on');
+  onLobChange();
+}
+
+function onLobChange(){
+  // LOB data only covers the last few days: restrict the date list accordingly
+  DATES = fv('f-lob') ? LOB_DATES : BASE_DATES;
+  selectedDates = new Set();
+  buildDateList();
+  applyFilters();
 }
 
 // ─────────────────────────────────────────────
@@ -1243,8 +1323,9 @@ function pop(id,vals){
 }
 
 function resetFilters(){
-  ['f-zone','f-gm','f-rm','f-am','f-ph'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('f-type').value = 'all';
+  ['f-zone','f-gm','f-rm','f-am','f-ph','f-lob'].forEach(id => document.getElementById(id).value = '');
+  document.querySelectorAll('#tp-lob .lob-pt').forEach((t,i) => t.classList.toggle('on', i === 0));
+  DATES = BASE_DATES;
   multiState.state = { mode: 'all', selected: new Set() };
   multiState.city  = { mode: 'all', selected: new Set() };
   buildMultiList('state', uniqMeta('state'));
@@ -1279,8 +1360,11 @@ function filterDataset(sourceArray) {
 }
 
 function applyFilters(){
-  filtered = filterDataset(RAW);
-  cpdFiltered = filterDataset(CPD_RAW);
+  const lob = fv('f-lob');
+  const lobRows = lob ? LOB_RAW.filter(r => eq(r.lob, lob)) : null;
+
+  filtered = filterDataset(lobRows || RAW);
+  cpdFiltered = filterDataset(lobRows || CPD_RAW);
 
   renderKPIs();
   renderCharts();
