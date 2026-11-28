@@ -48,6 +48,42 @@ body{
 .hdr-title{color:#fff;font-size:16px;font-weight:700}
 .hdr-meta{color:#94A3B8;font-size:11px;margin-top:2px}
 
+.dev-badge{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:6px 18px 6px 14px;
+  border-radius:999px;
+  border:1px solid #D9D6FA;
+  background:linear-gradient(135deg,#EEF1FF 0%,#FBF3FF 100%);
+  box-shadow:0 2px 8px rgba(0,0,0,.18);
+  line-height:1.25;
+}
+
+.dev-dot{
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  background:#4ADE9A;
+  flex-shrink:0;
+}
+
+.dev-main{
+  font-size:13px;
+  font-weight:700;
+  color:#4338CA;
+  text-align:center;
+}
+
+.dev-main b{color:#111827}
+
+.dev-sub{
+  font-size:11px;
+  font-weight:600;
+  color:#6366F1;
+  text-align:center;
+}
+
 .filters{
   background:var(--white);
   border-bottom:1px solid var(--border);
@@ -502,6 +538,14 @@ td.r{
       style="padding:5px 13px;background:#059669;color:#fff;border:none;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;">
       ⬇ Raw CSV
     </button>
+
+    <div class="dev-badge">
+      <span class="dev-dot"></span>
+      <div>
+        <div class="dev-main">Developed by <b>Vidya Shankar G P</b> 💻</div>
+        <div class="dev-sub">- FM Central</div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -657,6 +701,32 @@ td.r{
 </div>
 
 <div class="sections">
+
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">
+        <span class="dot" style="background:var(--teal)"></span>
+        Partner View — Hub wise
+        <span style="font-size:11px;font-weight:500;color:var(--muted)">(LOB dates only · absolute counts)</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <select id="f-partner" onchange="renderPartnerView()"
+          style="font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:5px;background:var(--white);min-width:150px;max-width:260px;outline:none;">
+          <option value="">All Partners</option>
+        </select>
+        <div class="ptabs" id="tp-partner">
+          <div class="pt on" onclick="setPartnerP(1,this)">D-1</div>
+          <div class="pt" onclick="setPartnerP(3,this)">L3D</div>
+          <div class="pt" onclick="setPartnerP(5,this)">L5D</div>
+          <div class="pt" onclick="setPartnerP(7,this)">L7D</div>
+          <div class="pt" onclick="setPartnerP(999,this)">Overall</div>
+        </div>
+      </div>
+    </div>
+    <div class="tw">
+      <table id="t-partner"></table>
+    </div>
+  </div>
 
   <div class="card">
     <div class="card-head">
@@ -1002,7 +1072,12 @@ function init(payload, cpdPayload, lobPayload){
   // DRR for LOB view = hub total picked from PICKED_MAP (no LOB-wise picked available).
   if (lobPayload && Array.isArray(lobPayload.lob_data)) {
     LOB_RAW = processDataSet({ breach_data: lobPayload.lob_data }).rows;
-    LOB_DATES = [...new Set(LOB_RAW.map(r => r.date))].filter(Boolean).sort((a,b) => dv(b) - dv(a));
+    LOB_RAW.forEach(r => { r.partner = canon('partner', r.partner) || 'Unknown'; });
+    // Keep only LOB dates that also have picked (DRR) data in data.json, else hubs show 0
+    const pickedDateSet = new Set(Object.keys(PICKED_MAP).map(k => k.split('||')[1]));
+    LOB_DATES = [...new Set(LOB_RAW.map(r => r.date))]
+      .filter(d => d && pickedDateSet.has(d))
+      .sort((a,b) => dv(b) - dv(a));
   } else {
     LOB_RAW = [];
     LOB_DATES = [];
@@ -1052,6 +1127,8 @@ function buildFilters(){
   pop('f-rm', uniqMeta('rm'));
   pop('f-am', uniqMeta('am'));
   pop('f-ph', uniqMeta('ph'));
+  pop('f-partner', [...new Set(LOB_RAW.map(r => r.partner).filter(Boolean))].sort((a,b) => a.localeCompare(b)));
+  document.querySelector('#f-partner option').textContent = 'All Partners';
 
   buildDateList();
 }
@@ -1069,6 +1146,21 @@ function setLob(v, el){
 function onLobChange(){
   // LOB data only covers the last few days: restrict the date list accordingly
   DATES = fv('f-lob') ? LOB_DATES : BASE_DATES;
+  if (fv('f-lob') && !LOB_DATES.length) {
+    setS('err', 'No LOB data: lob_data.json missing/empty or its dates are not in data.json');
+  } else {
+    setS('ok', '✓ Ready — ' + RAW.length.toLocaleString() + ' records loaded');
+  }
+
+  // Hub dropdown: only hubs that have breaches in the selected LOB
+  const curHub = fv('f-ph');
+  const lobSel = fv('f-lob');
+  const hubList = lobSel
+    ? [...new Map(LOB_RAW.filter(r => eq(r.lob, lobSel)).map(r => [lc(r.ph), r.ph])).values()].sort()
+    : uniqMeta('ph');
+  pop('f-ph', hubList);
+  document.getElementById('f-ph').value = hubList.find(h => eq(h, curHub)) || '';
+
   selectedDates = new Set();
   buildDateList();
   applyFilters();
@@ -1323,8 +1415,9 @@ function pop(id,vals){
 }
 
 function resetFilters(){
-  ['f-zone','f-gm','f-rm','f-am','f-ph','f-lob'].forEach(id => document.getElementById(id).value = '');
+  ['f-zone','f-gm','f-rm','f-am','f-ph','f-lob','f-partner'].forEach(id => document.getElementById(id).value = '');
   document.querySelectorAll('#tp-lob .lob-pt').forEach((t,i) => t.classList.toggle('on', i === 0));
+  pop('f-ph', uniqMeta('ph'));
   DATES = BASE_DATES;
   multiState.state = { mode: 'all', selected: new Set() };
   multiState.city  = { mode: 'all', selected: new Set() };
@@ -1369,6 +1462,20 @@ function applyFilters(){
   renderKPIs();
   renderCharts();
   renderAll();
+
+  // Explain empty LOB results instead of leaving silent zeros
+  if (lob && LOB_DATES.length) {
+    if (!filtered.length) {
+      const hub = fv('f-ph');
+      setS('err', 'No ' + lob + ' breaches' + (hub ? ' for ' + hub : '') +
+        ' in the available LOB dates (' + LOB_DATES[LOB_DATES.length - 1] + ' to ' + LOB_DATES[0] +
+        '). DRR shown is the hub total. Try another hub or LOB.');
+    } else {
+      setS('ok', '✓ ' + lob + ' view — ' + filtered.length.toLocaleString() + ' records');
+    }
+  } else if (!lob) {
+    setS('ok', '✓ Ready — ' + RAW.length.toLocaleString() + ' records loaded');
+  }
 }
 
 function datesForN(n){
@@ -1706,7 +1813,126 @@ function renderGmView() {
   tbl.innerHTML = html;
 }
 
+// ─────────────────────────────────────────────
+// PARTNER VIEW (hub wise) — source: lob_data.json
+// ─────────────────────────────────────────────
+let partnerPeriod = 1;
+const partnerSort = { col: 10, asc: false };
+const PARTNER_KEYS = ['ph','zone','gm','rm','am','partner','a','e','ar','d','t','share'];
+const PARTNER_MAX_ROWS = 500;
+
+function setPartnerP(n, el) {
+  partnerPeriod = n;
+  document.querySelectorAll('#tp-partner .pt').forEach(e => e.classList.remove('on'));
+  el.classList.add('on');
+  renderPartnerView();
+}
+
+function doPartnerSort(ci) {
+  if (partnerSort.col === ci) partnerSort.asc = !partnerSort.asc;
+  else { partnerSort.col = ci; partnerSort.asc = ci <= 5; }
+  renderPartnerView();
+}
+
+function renderPartnerView() {
+  const tbl = document.getElementById('t-partner');
+  if (!LOB_RAW.length) {
+    tbl.innerHTML = '<tbody><tr><td class="no-data">Partner data not available — update lob_data.json (with partner column).</td></tr></tbody>';
+    return;
+  }
+
+  const lob = fv('f-lob');
+  const pf = fv('f-partner');
+  const base = lob ? LOB_RAW.filter(r => eq(r.lob, lob)) : LOB_RAW;
+
+  // global filters (date/state/city/zone/GM/RM/AM/hub) apply here too
+  const scoped = filterDataset(base);
+  const avail = LOB_DATES.filter(d => activeDates().has(d));
+  const ds = new Set(partnerPeriod === 999 ? avail : avail.slice(0, partnerPeriod));
+  const inPeriod = scoped.filter(r => ds.has(normalizeDateStr(r.date)));
+
+  // hub totals before partner filter → used for "Hub Share %"
+  const hubTotal = {};
+  inPeriod.forEach(r => {
+    const h = lc(r.ph);
+    hubTotal[h] = (hubTotal[h] || 0) + (r.cnt || 0);
+  });
+
+  const rows = pf ? inPeriod.filter(r => eq(r.partner, pf)) : inPeriod;
+  const agg = {};
+  rows.forEach(r => {
+    const k = lc(r.ph) + '||' + lc(r.partner);
+    if (!agg[k]) agg[k] = { ph: r.ph, zone: r.zone, gm: r.gm, rm: r.rm, am: r.am, partner: r.partner, a: 0, e: 0, ar: 0, d: 0, t: 0 };
+    const c = r.cnt || 0;
+    if (r.bucket === BA) agg[k].a  += c;
+    if (r.bucket === BE) agg[k].e  += c;
+    if (r.bucket === BR) agg[k].ar += c;
+    if (r.bucket === BD) agg[k].d  += c;
+    agg[k].t += c;
+  });
+
+  const list = Object.values(agg);
+  list.forEach(r => { r.share = hubTotal[lc(r.ph)] ? (r.t / hubTotal[lc(r.ph)]) * 100 : 0; });
+
+  if (!list.length) {
+    tbl.innerHTML = '<tbody><tr><td class="no-data">No partner data for this selection.</td></tr></tbody>';
+    return;
+  }
+
+  const key = PARTNER_KEYS[partnerSort.col];
+  list.sort((a, b) => {
+    const av = a[key], bv = b[key];
+    if (typeof av === 'string') return partnerSort.asc ? av.localeCompare(bv) : bv.localeCompare(av);
+    return partnerSort.asc ? av - bv : bv - av;
+  });
+
+  const gt = { a: 0, e: 0, ar: 0, d: 0, t: 0 };
+  list.forEach(r => { gt.a += r.a; gt.e += r.e; gt.ar += r.ar; gt.d += r.d; gt.t += r.t; });
+
+  const shown = list.slice(0, PARTNER_MAX_ROWS);
+
+  const thP = (label, ci, cls = '') => {
+    const sc = partnerSort.col === ci ? (partnerSort.asc ? ' sorted-asc' : ' sorted-desc') : '';
+    return '<th class="' + cls + sc + '" onclick="doPartnerSort(' + ci + ')">' + label + ' <span class="si"></span></th>';
+  };
+
+  let html = '<thead><tr>'
+    + thP('Hub', 0) + thP('Zone', 1) + thP('GM', 2) + thP('RM', 3) + thP('AM', 4) + thP('Partner', 5)
+    + thP('Attempt Breach', 6, 'r') + thP('EKL Issue', 7, 'r') + thP('Auto Reset', 8, 'r')
+    + thP('Dispatch Breach', 9, 'r') + thP('Grand Total', 10, 'r') + thP('Hub Share %', 11, 'r')
+    + '</tr></thead><tbody>';
+
+  shown.forEach(r => {
+    const zn = r.zone ? String(r.zone).charAt(0).toUpperCase() + String(r.zone).slice(1).toLowerCase() : 'Unknown';
+    html += '<tr>'
+      + '<td>' + r.ph + '</td>'
+      + '<td><span class="zbadge z-' + zn + '">' + (r.zone || '?') + '</span></td>'
+      + '<td>' + (r.gm || '-') + '</td>'
+      + '<td>' + (r.rm || '-') + '</td>'
+      + '<td>' + (r.am || '-') + '</td>'
+      + '<td style="font-weight:600;color:var(--navy2)">' + r.partner + '</td>'
+      + '<td class="r">' + N(r.a) + '</td>'
+      + '<td class="r">' + N(r.e) + '</td>'
+      + '<td class="r">' + N(r.ar) + '</td>'
+      + '<td class="r">' + N(r.d) + '</td>'
+      + '<td class="r" style="color:var(--blue);font-weight:700">' + N(r.t) + '</td>'
+      + '<td class="r">' + r.share.toFixed(1) + '%</td>'
+      + '</tr>';
+  });
+
+  html += '<tr class="rt"><td colspan="6">GRAND TOTAL' + (list.length > shown.length ? ' (all ' + N(list.length) + ' rows; top ' + N(shown.length) + ' shown)' : '') + '</td>'
+    + '<td class="r">' + N(gt.a) + '</td>'
+    + '<td class="r">' + N(gt.e) + '</td>'
+    + '<td class="r">' + N(gt.ar) + '</td>'
+    + '<td class="r">' + N(gt.d) + '</td>'
+    + '<td class="r">' + N(gt.t) + '</td>'
+    + '<td class="r">—</td></tr></tbody>';
+
+  tbl.innerHTML = html;
+}
+
 function renderAll(){
+  renderPartnerView();
   [0,1,2].forEach(i => renderSec(i));
   renderGmView();
 }
