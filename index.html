@@ -834,11 +834,11 @@ let selectedDates = new Set();
 let chartTrend = null;
 let chartMix = null;
 
-// Default: Grand Total descending (Overall=col 10, Pickup=col 9, Dispatch=col 7)
+// Default: Total Breach descending (col 5 in all hub tables)
 let sortState = [
-  {col:10,asc:false},
-  {col:9,asc:false},
-  {col:7,asc:false}
+  {col:5,asc:false},
+  {col:5,asc:false},
+  {col:5,asc:false}
 ];
 
 // ─────────────────────────────────────────────
@@ -1699,7 +1699,7 @@ function setP(sec,days,el){
 }
 
 let gmPeriod = 1;
-const gmSort = { col: 6, asc: false };
+const gmSort = { col: 1, asc: false };
 
 function setGmP(n, el) {
   gmPeriod = n;
@@ -1743,7 +1743,7 @@ function renderGmView() {
     gmAgg[k].t += cnt;
   });
 
-  const colKeys = ['gm', 'p', 'a', 'e', 'ar', 'd', 't', 'bp'];
+  const colKeys = ['gm', 't', 'a', 'e', 'ar', 'd', 'p', 'bp'];
   const gmRows = Object.values(gmAgg).sort((a, b) => {
     const key = colKeys[gmSort.col];
     const av = key === 'bp' ? (a.p + a.t > 0 ? a.t / (a.p + a.t) : 0) : a[key];
@@ -1773,12 +1773,12 @@ function renderGmView() {
 
   let html = '<thead><tr>'
     + thG('GM', 0)
-    + thG('DRR', 1, 'r')
+    + thG('Total Breach', 1, 'r')
     + thG('Attempt Breach', 2, 'r')
     + thG('EKL Issue', 3, 'r')
     + thG('Auto Reset', 4, 'r')
     + thG('Dispatch Breach', 5, 'r')
-    + thG('Grand Total', 6, 'r')
+    + thG('DRR', 6, 'r')
     + thG('Breach %', 7, 'r')
     + '</tr></thead>';
 
@@ -1786,24 +1786,24 @@ function renderGmView() {
   gmRows.forEach(r => {
     html += '<tr>'
       + '<td>' + (r.gm || '—') + '</td>'
-      + '<td class="r">' + N(r.p) + '</td>'
+      + '<td class="r">' + N(r.t) + '</td>'
       + '<td class="r">' + N(r.a) + '</td>'
       + '<td class="r">' + N(r.e) + '</td>'
       + '<td class="r">' + N(r.ar) + '</td>'
       + '<td class="r">' + N(r.d) + '</td>'
-      + '<td class="r">' + N(r.t) + '</td>'
+      + '<td class="r">' + N(r.p) + '</td>'
       + '<td class="r">' + bpFmt(r) + '</td>'
       + '</tr>';
   });
 
   html += '<tr style="font-weight:700;border-top:2px solid var(--border)">'
     + '<td>Grand Total</td>'
-    + '<td class="r">' + N(gt.p) + '</td>'
+    + '<td class="r">' + N(gt.t) + '</td>'
     + '<td class="r">' + N(gt.a) + '</td>'
     + '<td class="r">' + N(gt.e) + '</td>'
     + '<td class="r">' + N(gt.ar) + '</td>'
     + '<td class="r">' + N(gt.d) + '</td>'
-    + '<td class="r">' + N(gt.t) + '</td>'
+    + '<td class="r">' + N(gt.p) + '</td>'
     + '<td class="r">' + bpFmt(gt) + '</td>'
     + '</tr>';
 
@@ -1845,7 +1845,7 @@ function togglePartnerRow(idx, btn) {
     const d = PARTNER_DETAIL[idx];
     let h = '<div class="sub-table-container"><strong>Partner wise breakdown for ' + d.ph + '</strong>'
       + '<table class="sub-table"><thead><tr><th>Partner</th><th class="r">Attempt</th><th class="r">EKL</th>'
-      + '<th class="r">Auto Reset</th><th class="r">Dispatch</th><th class="r">Total Breaches</th><th class="r">Share %</th></tr></thead><tbody>';
+      + '<th class="r">Auto Reset</th><th class="r">Dispatch</th><th class="r">Total Breach</th><th class="r">Share %</th></tr></thead><tbody>';
     d.partners.forEach(p => {
       h += '<tr><td style="font-weight:600">' + p.partner + '</td>'
         + '<td class="r">' + N(p.a) + '</td><td class="r">' + N(p.e) + '</td>'
@@ -1930,7 +1930,7 @@ function renderPartnerView() {
   let html = '<thead><tr>'
     + thP('Hub', 0) + thP('Zone', 1) + thP('GM', 2) + thP('RM', 3) + thP('AM', 4)
     + thP('Partners', 5, 'r') + thP('Attempt Breach', 6, 'r') + thP('EKL Issue', 7, 'r')
-    + thP('Auto Reset', 8, 'r') + thP('Dispatch Breach', 9, 'r') + thP('Grand Total', 10, 'r')
+    + thP('Auto Reset', 8, 'r') + thP('Dispatch Breach', 9, 'r') + thP('Total Breach', 10, 'r')
     + '</tr></thead><tbody>';
 
   PARTNER_DETAIL = {};
@@ -1982,14 +1982,14 @@ function sortRows(rows,col,asc,buckets,periodDays){
   else if(col === 2) key = 'gm';
   else if(col === 3) key = 'rm';
   else if(col === 4) key = 'am';
-  else if(col === 5) key = 'p';
+  else if(col === 5) key = 't';
   else{
     const numericKeys = [];
     if(sA) numericKeys.push('a');
     if(sE) numericKeys.push('e');
     if(sR) numericKeys.push('ar');
     if(sD) numericKeys.push('d');
-    numericKeys.push('t');
+    numericKeys.push('p');
     numericKeys.push('bp');
     numericKeys.push('sugg');
     key = numericKeys[col - 6] || 't';
@@ -2110,12 +2110,12 @@ function renderSec(sec){
   const prefix = showAverage ? 'Avg ' : '';
   let numCI = 5;
 
-  let header = '<thead><tr>' + thC('Hub',0) + thC('Zone',1) + thC('GM',2) + thC('RM',3) + thC('AM',4) + thC(prefix + 'DRR', numCI++, 'r');
+  let header = '<thead><tr>' + thC('Hub',0) + thC('Zone',1) + thC('GM',2) + thC('RM',3) + thC('AM',4) + thC(showAverage ? 'Avg Daily Total Breach' : 'Total Breach', numCI++, 'r');
   if(sA) header += thC(prefix + 'Attempt Breach', numCI++, 'r');
   if(sE) header += thC(prefix + 'EKL Issue', numCI++, 'r');
   if(sR) header += thC(prefix + 'Auto Reset', numCI++, 'r');
   if(sD) header += thC(prefix + 'Dispatch Breach', numCI++, 'r');
-  header += thC(showAverage ? 'Avg Daily Total' : 'Grand Total', numCI++, 'r') + thC(prefix + 'Breach %', numCI++, 'r') + thC('Cap Today', numCI++, 'r') + thC('Cap Tomorrow', numCI++, 'r') + thC('Suggestion', numCI++) + '</tr></thead>';
+  header += thC(prefix + 'DRR', numCI++, 'r') + thC(prefix + 'Breach %', numCI++, 'r') + thC('Cap Today', numCI++, 'r') + thC('Cap Tomorrow', numCI++, 'r') + thC('Suggestion', numCI++) + '</tr></thead>';
 
   const zbadge = z => {
     const zn = z ? String(z).charAt(0).toUpperCase() + String(z).slice(1).toLowerCase() : 'Unknown';
@@ -2128,12 +2128,12 @@ function renderSec(sec){
   };
 
   const cells = d => {
-    let html = '<td class="r" style="color:var(--teal);font-weight:700">' + formatValue(d.p) + '</td>';
+    let html = '<td class="r" style="color:var(--blue);font-weight:700">' + formatValue(d.t) + '</td>';
     if(sA) html += '<td class="r">' + formatValue(d.a) + '</td>';
     if(sE) html += '<td class="r">' + formatValue(d.e) + '</td>';
     if(sR) html += '<td class="r">' + formatValue(d.ar) + '</td>';
     if(sD) html += '<td class="r">' + formatValue(d.d) + '</td>';
-    html += '<td class="r" style="color:var(--blue);font-weight:700">' + formatValue(d.t) + '</td>';
+    html += '<td class="r" style="color:var(--teal);font-weight:700">' + formatValue(d.p) + '</td>';
     html += '<td class="r">' + pct(d) + '</td>';
     return html;
   };
@@ -2227,24 +2227,24 @@ function renderSec(sec){
     if (breachOnlyDates.length === 0) {
       subHtml += '<div style="padding:8px 0; color:var(--green); font-weight:600;">✓ No breaches recorded for this hub in the selected period.</div>';
     } else {
-      subHtml += '<table class="sub-table"><thead><tr><th>Breach Date</th><th class="r">Picked</th>';
+      subHtml += '<table class="sub-table"><thead><tr><th>Breach Date</th><th class="r">Total Breach</th>';
 
       if(sA) subHtml += '<th class="r">Attempt</th>';
       if(sE) subHtml += '<th class="r">EKL</th>';
       if(sR) subHtml += '<th class="r">Auto Reset</th>';
       if(sD) subHtml += '<th class="r">Dispatch</th>';
-      subHtml += '<th class="r">Total Breaches</th><th class="r">Breach %</th></tr></thead><tbody>';
+      subHtml += '<th class="r">Picked</th><th class="r">Breach %</th></tr></thead><tbody>';
 
       breachOnlyDates.forEach(dk => {
         const dd = r.byDate[dk];
         subHtml += '<tr>' +
           '<td>' + dk + '</td>' +
-          '<td class="r">' + N(dd.p) + '</td>';
+          '<td class="r" style="font-weight:700; color:var(--red);">' + N(dd.t) + '</td>';
         if(sA) subHtml += '<td class="r">' + N(dd.a) + '</td>';
         if(sE) subHtml += '<td class="r">' + N(dd.e) + '</td>';
         if(sR) subHtml += '<td class="r">' + N(dd.ar) + '</td>';
         if(sD) subHtml += '<td class="r">' + N(dd.d) + '</td>';
-        subHtml += '<td class="r" style="font-weight:700; color:var(--red);">' + N(dd.t) + '</td>' +
+        subHtml += '<td class="r">' + N(dd.p) + '</td>' +
           '<td class="r">' + pct(dd) + '</td>' +
           '</tr>';
       });
