@@ -14,6 +14,7 @@
   --navy2:#1B2A4A;
   --blue:#2563EB;
   --red:#DC2626;
+  --breach:#EF1C1C;
   --amber:#D97706;
   --green:#059669;
   --purple:#7C3AED;
@@ -251,7 +252,8 @@ body{
   border-top:3px solid;
 }
 
-.kpi.k0{border-top-color:var(--navy2)}
+.kpi.k0{border-top-color:var(--breach);background:#FDECEC;border-color:#F8CFCF;border-top-color:var(--breach)}
+.kpi.k0 .k-val{color:var(--breach)}
 .kpi.k1{border-top-color:var(--red)}
 .kpi.k2{border-top-color:var(--purple)}
 .kpi.k3{border-top-color:var(--green)}
@@ -1786,7 +1788,7 @@ function renderGmView() {
   gmRows.forEach(r => {
     html += '<tr>'
       + '<td>' + (r.gm || '—') + '</td>'
-      + '<td class="r">' + N(r.t) + '</td>'
+      + '<td class="r" style="color:var(--breach);font-weight:700">' + N(r.t) + '</td>'
       + '<td class="r">' + N(r.a) + '</td>'
       + '<td class="r">' + N(r.e) + '</td>'
       + '<td class="r">' + N(r.ar) + '</td>'
@@ -1798,7 +1800,7 @@ function renderGmView() {
 
   html += '<tr style="font-weight:700;border-top:2px solid var(--border)">'
     + '<td>Grand Total</td>'
-    + '<td class="r">' + N(gt.t) + '</td>'
+    + '<td class="r" style="color:var(--breach)">' + N(gt.t) + '</td>'
     + '<td class="r">' + N(gt.a) + '</td>'
     + '<td class="r">' + N(gt.e) + '</td>'
     + '<td class="r">' + N(gt.ar) + '</td>'
@@ -1815,8 +1817,8 @@ function renderGmView() {
 // PARTNER VIEW (hub wise) — source: lob_data.json
 // ─────────────────────────────────────────────
 let partnerPeriod = 1;
-const partnerSort = { col: 10, asc: false };
-const PARTNER_KEYS = ['ph','zone','gm','rm','am','pc','a','e','ar','d','t'];
+const partnerSort = { col: 5, asc: false };
+const PARTNER_KEYS = ['ph','zone','gm','rm','am','t','pc','a','e','ar','d'];
 let PARTNER_DETAIL = {};
 
 function setPartnerP(n, el) {
@@ -1850,7 +1852,7 @@ function togglePartnerRow(idx, btn) {
       h += '<tr><td style="font-weight:600">' + p.partner + '</td>'
         + '<td class="r">' + N(p.a) + '</td><td class="r">' + N(p.e) + '</td>'
         + '<td class="r">' + N(p.ar) + '</td><td class="r">' + N(p.d) + '</td>'
-        + '<td class="r" style="font-weight:700;color:var(--red)">' + N(p.t) + '</td>'
+        + '<td class="r" style="font-weight:700;color:var(--breach)">' + N(p.t) + '</td>'
         + '<td class="r">' + (d.hubTotal ? (p.t / d.hubTotal * 100).toFixed(1) : '0.0') + '%</td></tr>';
     });
     h += '</tbody></table></div>';
@@ -1929,8 +1931,8 @@ function renderPartnerView() {
 
   let html = '<thead><tr>'
     + thP('Hub', 0) + thP('Zone', 1) + thP('GM', 2) + thP('RM', 3) + thP('AM', 4)
-    + thP('Partners', 5, 'r') + thP('Attempt Breach', 6, 'r') + thP('EKL Issue', 7, 'r')
-    + thP('Auto Reset', 8, 'r') + thP('Dispatch Breach', 9, 'r') + thP('Total Breach', 10, 'r')
+    + thP('Total Breach', 5, 'r') + thP('Partners', 6, 'r') + thP('Attempt Breach', 7, 'r')
+    + thP('EKL Issue', 8, 'r') + thP('Auto Reset', 9, 'r') + thP('Dispatch Breach', 10, 'r')
     + '</tr></thead><tbody>';
 
   PARTNER_DETAIL = {};
@@ -1947,22 +1949,23 @@ function renderPartnerView() {
       + '<td>' + (H.gm || '-') + '</td>'
       + '<td>' + (H.rm || '-') + '</td>'
       + '<td>' + (H.am || '-') + '</td>'
+      + '<td class="r" style="color:var(--breach);font-weight:700">' + N(H.t) + '</td>'
       + '<td class="r">' + N(H.pc) + '</td>'
       + '<td class="r">' + N(H.a) + '</td>'
       + '<td class="r">' + N(H.e) + '</td>'
       + '<td class="r">' + N(H.ar) + '</td>'
       + '<td class="r">' + N(H.d) + '</td>'
-      + '<td class="r" style="color:var(--blue);font-weight:700">' + N(H.t) + '</td>'
       + '</tr>'
       + '<tr id="pv-' + idx + '" style="display:none;"><td colspan="11" class="pv-sub"></td></tr>';
   });
 
-  html += '<tr class="rt"><td colspan="6">GRAND TOTAL</td>'
+  html += '<tr class="rt"><td colspan="5">GRAND TOTAL</td>'
+    + '<td class="r" style="color:var(--breach)">' + N(gt.t) + '</td>'
+    + '<td class="r">—</td>'
     + '<td class="r">' + N(gt.a) + '</td>'
     + '<td class="r">' + N(gt.e) + '</td>'
     + '<td class="r">' + N(gt.ar) + '</td>'
-    + '<td class="r">' + N(gt.d) + '</td>'
-    + '<td class="r">' + N(gt.t) + '</td></tr></tbody>';
+    + '<td class="r">' + N(gt.d) + '</td></tr></tbody>';
 
   tbl.innerHTML = html;
 }
@@ -2128,7 +2131,7 @@ function renderSec(sec){
   };
 
   const cells = d => {
-    let html = '<td class="r" style="color:var(--blue);font-weight:700">' + formatValue(d.t) + '</td>';
+    let html = '<td class="r" style="color:var(--breach);font-weight:700">' + formatValue(d.t) + '</td>';
     if(sA) html += '<td class="r">' + formatValue(d.a) + '</td>';
     if(sE) html += '<td class="r">' + formatValue(d.e) + '</td>';
     if(sR) html += '<td class="r">' + formatValue(d.ar) + '</td>';
@@ -2239,7 +2242,7 @@ function renderSec(sec){
         const dd = r.byDate[dk];
         subHtml += '<tr>' +
           '<td>' + dk + '</td>' +
-          '<td class="r" style="font-weight:700; color:var(--red);">' + N(dd.t) + '</td>';
+          '<td class="r" style="font-weight:700; color:var(--breach);">' + N(dd.t) + '</td>';
         if(sA) subHtml += '<td class="r">' + N(dd.a) + '</td>';
         if(sE) subHtml += '<td class="r">' + N(dd.e) + '</td>';
         if(sR) subHtml += '<td class="r">' + N(dd.ar) + '</td>';
